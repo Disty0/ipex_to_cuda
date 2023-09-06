@@ -2,25 +2,23 @@ import os
 import sys
 import contextlib
 import torch
-import intel_extension_for_pytorch as ipex
-try:
-    from .diffusers import ipex_diffusers
-except Exception:
-    pass
+import intel_extension_for_pytorch as ipex # pylint: disable=import-error, unused-import
 from .hijacks import ipex_hijacks
-from logger import logger
+from .dataloader import dataloader_init
+
+# pylint: disable=protected-access, missing-function-docstring, line-too-long
 
 #ControlNet depth_leres++
-class DummyDataParallel(torch.nn.Module):
-    def __new__(cls, module, device_ids=None, output_device=None, dim=0):
+class DummyDataParallel(torch.nn.Module): # pylint: disable=missing-class-docstring, unused-argument, too-few-public-methods
+    def __new__(cls, module, device_ids=None, output_device=None, dim=0): # pylint: disable=unused-argument
         if isinstance(device_ids, list) and len(device_ids) > 1:
-            logger.info("IPEX backend doesn't support DataParallel on multiple XPU devices")
+            print("IPEX backend doesn't support DataParallel on multiple XPU devices")
         return module.to("xpu")
 
-def return_null_context(*args, **kwargs):
+def return_null_context(*args, **kwargs): # pylint: disable=unused-argument
     return contextlib.nullcontext()
 
-def ipex_init():
+def ipex_init(): # pylint: disable=too-many-statements
     #Replace cuda with xpu:
     torch.cuda.current_device = torch.xpu.current_device
     torch.cuda.current_stream = torch.xpu.current_stream
@@ -142,8 +140,8 @@ def ipex_init():
     torch.cuda.amp.common.amp_definitely_not_available = lambda: False
     try:
         torch.cuda.amp.GradScaler = torch.xpu.amp.GradScaler
-    except Exception:
-        from .gradscaler import gradscaler_init
+    except Exception: # pylint: disable=broad-exception-caught
+        from .gradscaler import gradscaler_init # pylint: disable=import-outside-toplevel
         gradscaler_init()
         torch.cuda.amp.GradScaler = torch.xpu.amp.GradScaler
 
@@ -168,7 +166,4 @@ def ipex_init():
     torch.cuda.utilization = lambda: 0
 
     ipex_hijacks()
-    try:
-        ipex_diffusers()
-    except Exception:
-        pass
+    dataloader_init()
