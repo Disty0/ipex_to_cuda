@@ -167,3 +167,8 @@ def ipex_init(): # pylint: disable=too-many-statements
 
     ipex_hijacks()
     dataloader_init()
+    try:
+        from .diffusers import ipex_diffusers
+        ipex_diffusers()
+    except Exception: # pylint: disable=broad-exception-caught
+        pass
