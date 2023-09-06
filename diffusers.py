@@ -1,6 +1,6 @@
 import torch
-import intel_extension_for_pytorch as ipex
-import torch.nn.functional as F
+import intel_extension_for_pytorch as ipex # pylint: disable=import-error, unused-import
+import torch.nn.functional as F # pylint: disable=ungrouped-imports
 import diffusers #0.20.2
 
 Attention = diffusers.models.attention_processor.Attention
