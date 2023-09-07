@@ -1,3 +1,4 @@
+import contextlib
 import importlib
 import torch
 import intel_extension_for_pytorch as ipex # pylint: disable=import-error, unused-import
@@ -31,6 +32,7 @@ class CondFunc: # pylint: disable=missing-class-docstring
         else:
             return self.__orig_func(*args, **kwargs)
 
+_utils = torch.utils.data._utils
 def _shutdown_workers(self):
     if _utils is None or _utils.python_exit_status is True or _utils.python_exit_status is None:
         return
@@ -59,6 +61,15 @@ def _shutdown_workers(self):
             for w in self._workers: # pylint: disable=invalid-name
                 if w.is_alive():
                     w.terminate()
+
+class DummyDataParallel(torch.nn.Module): # pylint: disable=missing-class-docstring, unused-argument, too-few-public-methods
+    def __new__(cls, module, device_ids=None, output_device=None, dim=0): # pylint: disable=unused-argument
+        if isinstance(device_ids, list) and len(device_ids) > 1:
+            print("IPEX backend doesn't support DataParallel on multiple XPU devices")
+        return module.to("xpu")
+
+def return_null_context(*args, **kwargs): # pylint: disable=unused-argument
+    return contextlib.nullcontext()
 
 def check_device(device):
     return bool((isinstance(device, torch.device) and device.type == "cuda") or (isinstance(device, str) and "cuda" in device) or isinstance(device, int))
@@ -177,7 +188,9 @@ def ipex_hijacks():
 
     #Functions that make compile mad with CondFunc:
     torch.utils.data.dataloader._MultiProcessingDataLoaderIter._shutdown_workers = _shutdown_workers
+    torch.nn.DataParallel = DummyDataParallel
     torch.autocast = ipex_autocast
     torch.cat = torch_cat
     torch.linalg.solve = linalg_solve
     torch.nn.functional.interpolate = interpolate
+    torch.backends.cuda.sdp_kernel = return_null_context
