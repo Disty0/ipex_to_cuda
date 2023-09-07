@@ -4,7 +4,6 @@ import contextlib
 import torch
 import intel_extension_for_pytorch as ipex # pylint: disable=import-error, unused-import
 from .hijacks import ipex_hijacks
-from .dataloader import dataloader_init
 
 # pylint: disable=protected-access, missing-function-docstring, line-too-long
 
@@ -141,9 +140,12 @@ def ipex_init(): # pylint: disable=too-many-statements
     try:
         torch.cuda.amp.GradScaler = torch.xpu.amp.GradScaler
     except Exception: # pylint: disable=broad-exception-caught
-        from .gradscaler import gradscaler_init # pylint: disable=import-outside-toplevel
-        gradscaler_init()
-        torch.cuda.amp.GradScaler = torch.xpu.amp.GradScaler
+        try:
+            from .gradscaler import gradscaler_init # pylint: disable=import-outside-toplevel, import-error
+            gradscaler_init()
+            torch.cuda.amp.GradScaler = torch.xpu.amp.GradScaler
+        except Exception: # pylint: disable=broad-exception-caught
+            torch.cuda.amp.GradScaler = ipex.cpu.autocast._grad_scaler.GradScaler
 
     #C
     torch._C._cuda_getCurrentRawStream = ipex._C._getCurrentStream
@@ -167,7 +169,7 @@ def ipex_init(): # pylint: disable=too-many-statements
 
     ipex_hijacks()
     try:
-        from .diffusers import ipex_diffusers
+        from .diffusers import ipex_diffusers # pylint: disable=import-outside-toplevel, import-error
         ipex_diffusers()
     except Exception: # pylint: disable=broad-exception-caught
         pass
