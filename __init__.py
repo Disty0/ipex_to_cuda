@@ -166,7 +166,6 @@ def ipex_init(): # pylint: disable=too-many-statements
     torch.cuda.utilization = lambda: 0
 
     ipex_hijacks()
-    dataloader_init()
     try:
         from .diffusers import ipex_diffusers
         ipex_diffusers()
