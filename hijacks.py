@@ -84,7 +84,7 @@ def ipex_no_cuda(orig_func, *args, **kwargs):
 
 original_autocast = torch.autocast
 def ipex_autocast(*args, **kwargs):
-    if args[0] == "cuda":
+    if len(args) > 1 and args[0] == "cuda":
         return original_autocast("xpu", *args[1:], **kwargs)
     else:
         return original_autocast(*args, **kwargs)
@@ -164,6 +164,9 @@ def ipex_hijacks():
         lambda orig_func, self, input: orig_func(self, input.to(self.weight.data.dtype)),
         lambda orig_func, self, input: input.dtype != self.weight.data.dtype)
     CondFunc('torch.nn.modules.linear.Linear.forward',
+        lambda orig_func, self, input: orig_func(self, input.to(self.weight.data.dtype)),
+        lambda orig_func, self, input: input.dtype != self.weight.data.dtype)
+    CondFunc('torch.nn.modules.conv.Conv2d.forward',
         lambda orig_func, self, input: orig_func(self, input.to(self.weight.data.dtype)),
         lambda orig_func, self, input: input.dtype != self.weight.data.dtype)
     CondFunc('torch.bmm',
