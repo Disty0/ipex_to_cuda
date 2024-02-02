@@ -17,7 +17,7 @@ except Exception:
 
 ### Environment Variables
 
-- `IPEX_SDPA_SLICE_TRIGGER_RATE`: Specify when dynamic attention slicing for Scaled Dot Product Attention should get triggered for Intel ARC. This environment variable allows you to set the trigger rate in gigabytes (GB). The default is `6` GB.
+- `IPEX_SDPA_SLICE_TRIGGER_RATE`: Specify when dynamic attention slicing for Scaled Dot Product Attention should get triggered for Intel ARC. This environment variable allows you to set the trigger rate in gigabytes (GB). The default is `4` GB.
 
 - `IPEX_ATTENTION_SLICE_RATE`: Specify the dynamic attention slicing rate for Intel ARC. This environment variable allows you to set the slicing rate in gigabytes (GB). The default is `4` GB.
 
