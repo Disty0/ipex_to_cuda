@@ -272,9 +272,9 @@ def torch_load(f, map_location=None, *args, **kwargs):
     if map_location is None:
         map_location = "xpu"
     if check_device(map_location):
-        return original_torch_load(f, map_location=return_xpu(map_location), *args, **kwargs)
+        return original_torch_load(f, *args, map_location=return_xpu(map_location), **kwargs)
     else:
-        return original_torch_load(f, map_location=map_location, *args, **kwargs)
+        return original_torch_load(f, *args, map_location=map_location, **kwargs)
 
 
 # Hijack Functions:
