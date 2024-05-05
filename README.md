@@ -11,12 +11,13 @@ try:
     import intel_extension_for_pytorch as ipex
     if torch.xpu.is_available():
         from ipex_to_cuda import ipex_init
-        ipex_init()
+        ipex_active, message = ipex_init()
+        print(f"IPEX Active: {ipex_active} Message: {message}")
 except Exception:
     pass
 
 if torch.cuda.is_available():
-    print("IPEX to CUDA is working")
+    print("IPEX to CUDA is working!")
     torch_model.to("cuda")
 ```
 
