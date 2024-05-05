@@ -1,7 +1,10 @@
 # ipex_to_cuda
 Adapt IPEX to CUDA
 
-Add IPEX support without affecting CUDA users:
+
+Converts torch.cuda or model.to("cuda") to torch.xpu or model.to("xpu") automatically.  
+
+Add IPEX support without extra code changes:
 ```
 import torch
 try:
@@ -11,6 +14,10 @@ try:
         ipex_init()
 except Exception:
     pass
+
+if torch.cuda.is_available():
+    print("IPEX to CUDA is working")
+    torch_model.to("cuda")
 ```
 
 
