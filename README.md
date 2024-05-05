@@ -17,7 +17,8 @@ except Exception:
     pass
 
 if torch.cuda.is_available():
-    print("IPEX to CUDA is working!")
+    if hasattr(torch.cuda, "is_xpu_hijacked") and torch.cuda.is_xpu_hijacked:
+        print("IPEX to CUDA is working!")
     torch_model.to("cuda")
 ```
 
