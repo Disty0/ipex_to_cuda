@@ -1,14 +1,31 @@
 import os
 import torch
-import intel_extension_for_pytorch as ipex # pylint: disable=import-error, unused-import
-import diffusers #0.24.0 # pylint: disable=import-error
+import diffusers #0.30.0 # pylint: disable=import-error
 from diffusers.models.attention_processor import Attention
+from diffusers.models import transformers
 from diffusers.utils import USE_PEFT_BACKEND
 from functools import cache
 
 # pylint: disable=protected-access, missing-function-docstring, line-too-long
 
+device_supports_fp64 = torch.xpu.has_fp64_dtype() if hasattr(torch.xpu, "has_fp64_dtype") else torch.xpu.get_device_properties("xpu").has_fp64
 attention_slice_rate = float(os.environ.get('IPEX_ATTENTION_SLICE_RATE', 4))
+
+# fp64 error
+def rope(pos: torch.Tensor, dim: int, theta: int) -> torch.Tensor:
+    assert dim % 2 == 0, "The dimension must be even."
+
+    scale = torch.arange(0, dim, 2, dtype=torch.float32, device=pos.device) / dim # force fp32 instead of fp64
+    omega = 1.0 / (theta**scale)
+
+    batch_size, seq_length = pos.shape
+    out = torch.einsum("...n,d->...nd", pos, omega)
+    cos_out = torch.cos(out)
+    sin_out = torch.sin(out)
+
+    stacked_out = torch.stack([cos_out, -sin_out, sin_out, cos_out], dim=-1)
+    out = stacked_out.view(batch_size, -1, dim // 2, 2, 2)
+    return out.float()
 
 @cache
 def find_slice_size(slice_size, slice_block_size):
@@ -70,8 +87,8 @@ class SlicedAttnProcessor: # pylint: disable=too-few-public-methods
     def __init__(self, slice_size):
         self.slice_size = slice_size
 
-    def __call__(self, attn: Attention, hidden_states: torch.FloatTensor,
-    encoder_hidden_states=None, attention_mask=None) -> torch.FloatTensor: # pylint: disable=too-many-statements, too-many-locals, too-many-branches
+    def __call__(self, attn: Attention, hidden_states: torch.Tensor,
+    encoder_hidden_states=None, attention_mask=None) -> torch.Tensor: # pylint: disable=too-many-statements, too-many-locals, too-many-branches
 
         residual = hidden_states
 
@@ -188,13 +205,10 @@ class AttnProcessor:
     Default processor for performing attention-related computations.
     """
 
-    def __call__(self, attn: Attention, hidden_states: torch.FloatTensor,
-    encoder_hidden_states=None, attention_mask=None,
-    temb=None, scale: float = 1.0) -> torch.Tensor: # pylint: disable=too-many-statements, too-many-locals, too-many-branches
+    def __call__(self, attn, hidden_states: torch.Tensor, encoder_hidden_states=None, attention_mask=None,
+    temb=None, *args, **kwargs) -> torch.Tensor: # pylint: disable=too-many-statements, too-many-locals, too-many-branches
 
         residual = hidden_states
-
-        args = () if USE_PEFT_BACKEND else (scale,)
 
         if attn.spatial_norm is not None:
             hidden_states = attn.spatial_norm(hidden_states, temb)
@@ -213,15 +227,15 @@ class AttnProcessor:
         if attn.group_norm is not None:
             hidden_states = attn.group_norm(hidden_states.transpose(1, 2)).transpose(1, 2)
 
-        query = attn.to_q(hidden_states, *args)
+        query = attn.to_q(hidden_states)
 
         if encoder_hidden_states is None:
             encoder_hidden_states = hidden_states
         elif attn.norm_cross:
             encoder_hidden_states = attn.norm_encoder_hidden_states(encoder_hidden_states)
 
-        key = attn.to_k(encoder_hidden_states, *args)
-        value = attn.to_v(encoder_hidden_states, *args)
+        key = attn.to_k(encoder_hidden_states)
+        value = attn.to_v(encoder_hidden_states)
 
         query = attn.head_to_batch_dim(query)
         key = attn.head_to_batch_dim(key)
@@ -292,7 +306,7 @@ class AttnProcessor:
         hidden_states = attn.batch_to_head_dim(hidden_states)
 
         # linear proj
-        hidden_states = attn.to_out[0](hidden_states, *args)
+        hidden_states = attn.to_out[0](hidden_states)
         # dropout
         hidden_states = attn.to_out[1](hidden_states)
 
@@ -310,3 +324,5 @@ def ipex_diffusers():
     #ARC GPUs can't allocate more than 4GB to a single block:
     diffusers.models.attention_processor.SlicedAttnProcessor = SlicedAttnProcessor
     diffusers.models.attention_processor.AttnProcessor = AttnProcessor
+    if not device_supports_fp64 and hasattr(transformers, "transformer_flux"):
+        diffusers.models.transformers.transformer_flux.rope = rope
