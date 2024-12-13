@@ -77,7 +77,7 @@ def ipex_init(): # pylint: disable=too-many-statements
                 torch.cuda.warnings = torch.xpu.warnings
                 torch.cuda.classproperty = torch.xpu.classproperty
                 torch.UntypedStorage.cuda = torch.UntypedStorage.xpu
-                if not ipex.__version__.startswith("2.3"):
+                if float(ipex.__version__[:3]) < 2.3:
                     torch.cuda._initialization_lock = torch.xpu.lazy_init._initialization_lock
                     torch.cuda._initialized = torch.xpu.lazy_init._initialized
                     torch.cuda._is_in_bad_fork = torch.xpu.lazy_init._is_in_bad_fork
