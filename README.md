@@ -9,12 +9,14 @@ Add IPEX support without extra code changes:
 import torch
 try:
     import intel_extension_for_pytorch as ipex
-    if torch.xpu.is_available():
-        from ipex_to_cuda import ipex_init
-        ipex_active, message = ipex_init()
-        print(f"IPEX Active: {ipex_active} Message: {message}")
 except Exception:
     pass
+
+if torch.xpu.is_available():
+    from ipex_to_cuda import ipex_init
+    ipex_active, message = ipex_init()
+    print(f"IPEX Active: {ipex_active} Message: {message}")
+
 
 if torch.cuda.is_available():
     if hasattr(torch.cuda, "is_xpu_hijacked") and torch.cuda.is_xpu_hijacked:
