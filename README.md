@@ -32,4 +32,4 @@ if torch.cuda.is_available():
 
 - `IPEX_ATTENTION_SLICE_RATE`: Specify the dynamic attention slicing rate for Intel ARC. This environment variable allows you to set the slicing rate in gigabytes (GB). The default is `4` GB.
 
-- `IPEX_FORCE_ATTENTION_SLICE`: Force use dynamic attention slicing even if the GPU supports 64 bit. Useful with Intel Data Center GPU MAX series.
+- `IPEX_FORCE_ATTENTION_SLICE`: Force use dynamic attention slicing even if the GPU supports 64 bit. Useful for saving memory with Intel GPU MAX and Intel Battlemage series.
