@@ -28,9 +28,9 @@ if torch.cuda.is_available():
 
 ### Environment Variables
 
-- `IPEX_SDPA_SLICE_TRIGGER_RATE`: Specify when dynamic attention slicing for Scaled Dot Product Attention should get triggered for Intel ARC. This environment variable allows you to set the trigger rate in gigabytes (GB). The default is `4` GB.
+- `IPEX_SDPA_SLICE_TRIGGER_RATE`: Specify when dynamic attention slicing for Scaled Dot Product Attention should get triggered for Intel ARC. This environment variable allows you to set the trigger rate in gigabytes (GB). The default is `4`.
 
-- `IPEX_ATTENTION_SLICE_RATE`: Specify the dynamic attention slicing rate for 32 bit GPUs. This environment variable allows you to set the slicing rate in gigabytes (GB). The default is `4` GB.
+- `IPEX_ATTENTION_SLICE_RATE`: Specify the dynamic attention slicing rate for 32 bit GPUs. This environment variable allows you to set the slicing rate in gigabytes (GB). The default is `4`.
 
 - `IPEX_FORCE_ATTENTION_SLICE`: Specify to enable or disable Dynamic Attention. Useful for saving memory with Intel GPU MAX and Battlemage series. The default is `0`.
   - `1` will force enable dynamic attention slicing even if the GPU supports 64 bit.
