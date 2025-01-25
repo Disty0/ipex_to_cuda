@@ -7,7 +7,7 @@ from functools import cache, wraps
 
 # ARC GPUs can't allocate more than 4GB to a single block so we slice the attetion layers
 
-sdpa_slice_trigger_rate = float(os.environ.get('IPEX_SDPA_SLICE_TRIGGER_RATE', 6))
+sdpa_slice_trigger_rate = float(os.environ.get('IPEX_SDPA_SLICE_TRIGGER_RATE', 4))
 attention_slice_rate = float(os.environ.get('IPEX_ATTENTION_SLICE_RATE', 4))
 
 # Find something divisible with the input_tokens
@@ -121,9 +121,9 @@ def dynamic_scaled_dot_product_attention(query, key, value, attn_mask=None, drop
                     attn_mask=attn_mask[start_idx:end_idx, :, :, :] if attn_mask is not None else attn_mask,
                     dropout_p=dropout_p, is_causal=is_causal, **kwargs
                 )
-        if is_unsqueezed:
-            hidden_states.squeeze(0)
         torch.xpu.synchronize(query.device)
     else:
-        return original_scaled_dot_product_attention(query, key, value, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal, **kwargs)
+        hidden_states = original_scaled_dot_product_attention(query, key, value, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal, **kwargs)
+    if is_unsqueezed:
+        hidden_states.squeeze(0)
     return hidden_states
