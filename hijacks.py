@@ -33,7 +33,7 @@ def is_cuda(self):
     return self.device.type == "xpu" or self.device.type == "cuda"
 
 def check_device_type(device, device_type: str) -> bool:
-    if device is None:
+    if device is None or isinstance(device, torch.dtype):
         return False
     else:
         return bool(torch.device(device).type == device_type)
