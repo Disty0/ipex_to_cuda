@@ -216,8 +216,8 @@ def Tensor_to(self, device=None, *args, **kwargs):
 original_Tensor_cuda = torch.Tensor.cuda
 @wraps(torch.Tensor.cuda)
 def Tensor_cuda(self, device=None, *args, **kwargs):
-    if check_device(device):
-        return original_Tensor_cuda(self, return_xpu(device), *args, **kwargs)
+    if check_device(device) or device == None:
+        return self.to(return_xpu(device), *args, **kwargs)
     else:
         return original_Tensor_cuda(self, device, *args, **kwargs)
 
@@ -296,6 +296,13 @@ def torch_linspace(*args, device=None, **kwargs):
         return original_torch_linspace(*args, device=return_xpu(device), **kwargs)
     else:
         return original_torch_linspace(*args, device=device, **kwargs)
+    
+original_torch_eye = torch.eye
+@wraps(torch.eye)
+def torch_eye(*args, device=None, **kwargs):
+    if check_device(device):
+        device=return_xpu(device)
+    return original_torch_eye(*args, device=device, **kwargs)
 
 original_torch_load = torch.load
 @wraps(torch.load)
@@ -340,6 +347,7 @@ def ipex_hijacks(legacy=True):
     torch.zeros = torch_zeros
     torch.full = torch_full
     torch.linspace = torch_linspace
+    torch.eye = torch_eye
     torch.load = torch_load
     torch.Generator = torch_Generator
     torch.cuda.synchronize = torch_cuda_synchronize
