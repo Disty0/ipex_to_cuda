@@ -33,10 +33,13 @@ def is_cuda(self):
     return self.device.type == "xpu" or self.device.type == "cuda"
 
 def check_device_type(device, device_type: str) -> bool:
-    if device is None or isinstance(device, torch.dtype):
+    if device is None or isinstance(device, torch.dtype): # torch.Tensor.to can get a dtype as input
         return False
     else:
-        return bool(torch.device(device).type == device_type)
+        if hasattr(device, "device"): # torch.Tensor.to can get a tensor as input
+            return bool(torch.device(device.device).type == device_type)
+        else:
+            return bool(torch.device(device).type == device_type)
 
 def check_cuda(device) -> bool:
     return bool(isinstance(device, int) or check_device_type(device, "cuda"))
@@ -300,7 +303,7 @@ def torch_linspace(*args, device=None, **kwargs):
         return original_torch_linspace(*args, device=return_xpu(device), **kwargs)
     else:
         return original_torch_linspace(*args, device=device, **kwargs)
-    
+
 original_torch_eye = torch.eye
 @wraps(torch.eye)
 def torch_eye(*args, device=None, **kwargs):
