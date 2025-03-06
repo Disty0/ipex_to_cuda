@@ -243,13 +243,21 @@ def UntypedStorage_init(*args, device=None, **kwargs):
     else:
         return original_UntypedStorage_init(*args, device=device, **kwargs)
 
+original_UntypedStorage_to = torch.UntypedStorage.to
+@wraps(torch.UntypedStorage.to)
+def UntypedStorage_to(self, *args, device=None, **kwargs):
+    if check_cuda(device):
+        return original_UntypedStorage_to(self, *args, device=return_xpu(device), **kwargs)
+    else:
+        return original_UntypedStorage_to(self, *args, device=device, **kwargs)
+
 original_UntypedStorage_cuda = torch.UntypedStorage.cuda
 @wraps(torch.UntypedStorage.cuda)
-def UntypedStorage_cuda(self, *args, device=None, **kwargs):
+def UntypedStorage_cuda(self, device=None, **kwargs):
     if device is None or check_cuda(device):
-        return self.to(*args, device=return_xpu(device), **kwargs)
+        return self.to(device=return_xpu(device), **kwargs)
     else:
-        return original_UntypedStorage_cuda(self, device, *args, **kwargs)
+        return original_UntypedStorage_cuda(self, device=device, **kwargs)
 
 original_torch_empty = torch.empty
 @wraps(torch.empty)
@@ -344,6 +352,7 @@ def ipex_hijacks(legacy=True):
     torch.Tensor.pin_memory = Tensor_pin_memory
     torch.UntypedStorage.__init__ = UntypedStorage_init
     torch.UntypedStorage.cuda = UntypedStorage_cuda
+    torch.UntypedStorage.to = UntypedStorage_to
     torch.empty = torch_empty
     torch.randn = torch_randn
     torch.ones = torch_ones
