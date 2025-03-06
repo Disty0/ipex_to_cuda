@@ -253,11 +253,11 @@ def UntypedStorage_to(self, *args, device=None, **kwargs):
 
 original_UntypedStorage_cuda = torch.UntypedStorage.cuda
 @wraps(torch.UntypedStorage.cuda)
-def UntypedStorage_cuda(self, device=None, **kwargs):
+def UntypedStorage_cuda(self, device=None, non_blocking=False, **kwargs):
     if device is None or check_cuda(device):
-        return self.to(device=return_xpu(device), **kwargs)
+        return self.to(device=return_xpu(device), non_blocking=non_blocking, **kwargs)
     else:
-        return original_UntypedStorage_cuda(self, device=device, **kwargs)
+        return original_UntypedStorage_cuda(self, device=device, non_blocking=non_blocking, **kwargs)
 
 original_torch_empty = torch.empty
 @wraps(torch.empty)
