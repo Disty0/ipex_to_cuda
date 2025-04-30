@@ -24,6 +24,10 @@ if torch.cuda.is_available():
     torch_model.to("cuda")
 ```
 
+Install it with this command:  
+```
+pip install git+https://github.com/Disty0/ipex_to_cuda
+```
 
 
 ### Environment Variables
