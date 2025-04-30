@@ -1,6 +1,7 @@
 from functools import wraps
 import torch
 import diffusers # pylint: disable=import-error
+from diffusers.utils import torch_utils # pylint: disable=import-error, unused-import # noqa: F401
 
 # pylint: disable=protected-access, missing-function-docstring, line-too-long
 
@@ -61,8 +62,6 @@ def hidream_rope(pos: torch.Tensor, dim: int, theta: int) -> torch.Tensor:
 
 
 def ipex_diffusers(device_supports_fp64=False, can_allocate_plus_4gb=False):
-    # get around lazy imports
-    from diffusers.utils import torch_utils # pylint: disable=import-error, unused-import # noqa: F401
     diffusers.utils.torch_utils.fourier_filter = fourier_filter
     if not device_supports_fp64:
         # get around lazy imports
