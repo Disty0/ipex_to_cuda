@@ -1,2 +1,4 @@
 __pycache__
 .ruff_cache
+build
+src/ipex_to_cuda.egg-info
