@@ -1,6 +1,5 @@
 import os
 import sys
-import contextlib
 import torch
 try:
     import intel_extension_for_pytorch as ipex # pylint: disable=import-error, unused-import
@@ -160,29 +159,6 @@ def ipex_init(): # pylint: disable=too-many-statements
             torch.cuda.seed = torch.xpu.seed
             torch.cuda.seed_all = torch.xpu.seed_all
             torch.cuda.initial_seed = torch.xpu.initial_seed
-
-            # AMP:
-            if has_ipex:
-                torch.xpu.amp.custom_fwd = torch.cuda.amp.custom_fwd
-                torch.xpu.amp.custom_bwd = torch.cuda.amp.custom_bwd
-                torch.cuda.amp = torch.xpu.amp
-                if torch_version < 2.3:
-                    torch.is_autocast_enabled = torch.xpu.is_autocast_xpu_enabled
-                    torch.get_autocast_gpu_dtype = torch.xpu.get_autocast_xpu_dtype
-
-                if not hasattr(torch.cuda.amp, "common"):
-                    torch.cuda.amp.common = contextlib.nullcontext()
-                torch.cuda.amp.common.amp_definitely_not_available = lambda: False
-
-                try:
-                    torch.cuda.amp.GradScaler = torch.xpu.amp.GradScaler
-                except Exception: # pylint: disable=broad-exception-caught
-                    try:
-                        from .gradscaler import gradscaler_init # pylint: disable=import-outside-toplevel, import-error
-                        gradscaler_init()
-                        torch.cuda.amp.GradScaler = torch.xpu.amp.GradScaler
-                    except Exception: # pylint: disable=broad-exception-caught
-                        torch.cuda.amp.GradScaler = ipex.cpu.autocast._grad_scaler.GradScaler
 
             # C
             if torch_version < 2.3:
