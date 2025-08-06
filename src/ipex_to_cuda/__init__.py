@@ -125,6 +125,24 @@ def ipex_init(): # pylint: disable=too-many-statements
                 torch.cuda.Tuple = torch.xpu.Tuple
                 torch.cuda.List = torch.xpu.List
 
+            if torch_version < 2.9:
+                # torch._int_mm via onednn quantized matmul is supported with torch 2.9
+                # ipex 2.7+ has the same torch._int_mm support as torch 2.9 but doesn't support torch.compile
+                # torch._int_mm directly uses onednn quantized matmul
+                # onednn qlinear is a wrapper around onednn quantized matmul
+                if hasattr(torch.ops, "onednn") and hasattr(torch.ops.onednn, "qlinear_pointwise"):
+                    def onednn_mm(x: torch.Tensor, y: torch.Tensor):
+                        # supports int8, fp32, fp16, and bf16 matmul with accumulation using a different dtype
+                        # int8 matmul with onednn is slower than 16 bit with dim_size < 4096
+                        return torch.ops.onednn.qlinear_pointwise.default(x, 1.0, 0, y, torch.ones(1, device=y.device), torch.zeros(1, device=y.device), None, 1.0, 0, torch.float32, "none", [], "none")
+                    torch._int_mm = onednn_mm
+                    try:
+                        # torch.compile fix
+                        from .int_mm import qlinear_unary
+                        torch._inductor.mkldnn_lowerings.register_onednn_fusion_ops.qlinear_unary = qlinear_unary
+                    except Exception as e:
+                        pass
+
             # Memory:
             if 'linux' in sys.platform and "WSL2" in os.popen("uname -a").read():
                 torch.xpu.empty_cache = lambda: None
