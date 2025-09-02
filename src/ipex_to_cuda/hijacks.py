@@ -4,7 +4,12 @@ from contextlib import nullcontext
 import torch
 import numpy as np
 
-torch_version = float(torch.__version__[:3])
+torch_version = torch.__version__[:4]
+if torch_version[-1] not in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}:
+    torch_version = torch_version[:-1]
+torch_version = torch_version.split(".")
+torch_version[0], torch_version[1] = int(torch_version[0]), int(torch_version[1])
+
 current_xpu_device = f"xpu:{torch.xpu.current_device()}"
 device_supports_fp64 = torch.xpu.has_fp64_dtype() if hasattr(torch.xpu, "has_fp64_dtype") else torch.xpu.get_device_properties(current_xpu_device).has_fp64
 
@@ -284,7 +289,7 @@ def UntypedStorage_init(*args, device=None, **kwargs):
     else:
         return original_UntypedStorage_init(*args, device=device, **kwargs)
 
-if torch_version >= 2.4:
+if torch_version[0] > 2 or (torch_version[0] == 2 and torch_version[1] >= 4):
     original_UntypedStorage_to = torch.UntypedStorage.to
     @wraps(torch.UntypedStorage.to)
     def UntypedStorage_to(self, *args, device=None, **kwargs):
@@ -402,7 +407,7 @@ class torch_Generator(original_torch_Generator):
 # Hijack Functions:
 def ipex_hijacks():
     global device_supports_fp64
-    if torch_version >= 2.4:
+    if torch_version[0] > 2 or (torch_version[0] == 2 and torch_version[1] >= 4):
         torch.UntypedStorage.cuda = UntypedStorage_cuda
         torch.UntypedStorage.to = UntypedStorage_to
     torch.tensor = torch_tensor
