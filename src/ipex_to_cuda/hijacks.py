@@ -1,3 +1,5 @@
+from typing import Optional
+
 import os
 from functools import wraps
 from contextlib import nullcontext
@@ -12,20 +14,7 @@ torch_version[0], torch_version[1] = int(torch_version[0]), int(torch_version[1]
 
 current_xpu_device = f"xpu:{torch.xpu.current_device()}"
 device_supports_fp64 = torch.xpu.has_fp64_dtype() if hasattr(torch.xpu, "has_fp64_dtype") else torch.xpu.get_device_properties(current_xpu_device).has_fp64
-
-if os.environ.get('IPEX_FORCE_ATTENTION_SLICE', '0') == '0':
-    if (torch.xpu.get_device_properties(current_xpu_device).total_memory / 1024 / 1024 / 1024) > 4.1:
-        try:
-            x = torch.ones((33000,33000), dtype=torch.float32, device=current_xpu_device)
-            del x
-            torch.xpu.empty_cache()
-            use_dynamic_attention = False
-        except Exception:
-            use_dynamic_attention = True
-    else:
-        use_dynamic_attention = True
-else:
-    use_dynamic_attention = bool(os.environ.get('IPEX_FORCE_ATTENTION_SLICE', '0') == '1')
+use_dynamic_attention = bool(os.environ.get('IPEX_FORCE_ATTENTION_SLICE', '0') != '-1')
 
 # pylint: disable=protected-access, missing-function-docstring, line-too-long, unnecessary-lambda, no-else-return
 
@@ -133,18 +122,23 @@ else:
     # 32 bit attention workarounds for Alchemist:
     try:
         from .attention import dynamic_scaled_dot_product_attention as original_scaled_dot_product_attention
-    except Exception: # pylint: disable=broad-exception-caught
+    except ImportError:
         original_scaled_dot_product_attention = torch.nn.functional.scaled_dot_product_attention
 
 @wraps(torch.nn.functional.scaled_dot_product_attention)
-def scaled_dot_product_attention(query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False, **kwargs):
+def scaled_dot_product_attention(query: torch.FloatTensor, key: torch.FloatTensor, value: torch.FloatTensor, attn_mask: Optional[torch.FloatTensor] = None, dropout_p: float = 0.0, is_causal: bool = False, scale: Optional[float] = None, enable_gqa: bool = False, **kwargs) -> torch.FloatTensor:
     if query.dtype != key.dtype:
         key = key.to(dtype=query.dtype)
     if query.dtype != value.dtype:
         value = value.to(dtype=query.dtype)
     if attn_mask is not None and query.dtype != attn_mask.dtype:
         attn_mask = attn_mask.to(dtype=query.dtype)
-    return original_scaled_dot_product_attention(query, key, value, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal, **kwargs)
+    if enable_gqa:
+        kwargs["enable_gqa"] = enable_gqa
+    result = original_scaled_dot_product_attention(query, key, value, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal, scale=scale, **kwargs)
+    if result.dtype != query.dtype:
+        result = result.to(dtype=query.dtype)
+    return result
 
 # Data Type Errors:
 original_torch_bmm = torch.bmm
