@@ -15,10 +15,6 @@ device_supports_fp64 = torch.xpu.has_fp64_dtype() if hasattr(torch.xpu, "has_fp6
 # pylint: disable=protected-access, missing-function-docstring, line-too-long, unnecessary-lambda, no-else-return
 
 
-def return_null_context(*args, **kwargs): # pylint: disable=unused-argument
-    return nullcontext()
-
-
 @property
 def is_cuda(self):
     return self.device.type == "xpu" or self.device.type == "cuda"
@@ -347,7 +343,6 @@ def ipex_hijacks():
     torch.Generator = torch_Generator
     torch._C.Generator = torch_Generator
 
-    torch.backends.cuda.sdp_kernel = return_null_context
     torch.UntypedStorage.is_cuda = is_cuda
     torch.amp.autocast_mode.autocast.__init__ = autocast_init
 
