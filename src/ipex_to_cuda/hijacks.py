@@ -76,8 +76,8 @@ def torch_get_autocast_dtype(device_type=None):
 # IPEX 2.5 and above has partial support but doesn't really work most of the time.
 original_interpolate = torch.nn.functional.interpolate
 @wraps(torch.nn.functional.interpolate)
-def interpolate(tensor, size=None, scale_factor=None, mode='nearest', align_corners=None, recompute_scale_factor=None, antialias=False): # pylint: disable=too-many-arguments
-    if mode in {'bicubic', 'bilinear'}:
+def interpolate(tensor, size=None, scale_factor=None, mode="nearest", align_corners=None, recompute_scale_factor=None, antialias=False): # pylint: disable=too-many-arguments
+    if mode in {"bicubic", "bilinear"}:
         return_device = tensor.device
         return_dtype = tensor.dtype
         return original_interpolate(tensor.to("cpu", dtype=torch.float32), size=size, scale_factor=scale_factor, mode=mode,
@@ -90,8 +90,8 @@ def interpolate(tensor, size=None, scale_factor=None, mode='nearest', align_corn
 # SwinIR BF16:
 original_functional_pad = torch.nn.functional.pad
 @wraps(torch.nn.functional.pad)
-def functional_pad(input, pad, mode='constant', value=None):
-    if mode == 'reflect' and input.dtype == torch.bfloat16:
+def functional_pad(input, pad, mode="constant", value=None):
+    if mode == "reflect" and input.dtype == torch.bfloat16:
         return original_functional_pad(input.to(torch.float32), pad, mode=mode, value=value).to(dtype=torch.bfloat16)
     else:
         return original_functional_pad(input, pad, mode=mode, value=value)
@@ -361,7 +361,7 @@ def ipex_hijacks():
     except Exception:
         pass
 
-    if os.environ.get('IPEX_FORCE_ATTENTION_SLICE', '0') != '-1':
+    if os.environ.get("IPEX_FORCE_ATTENTION_SLICE", "0") != "-1":
         from .attention import dynamic_scaled_dot_product_attention
         torch.nn.functional.scaled_dot_product_attention = dynamic_scaled_dot_product_attention
 
