@@ -108,12 +108,8 @@ def ipex_init(): # pylint: disable=too-many-statements
                 torch.cuda.BoolStorage = torch.xpu.BoolStorage
                 torch.cuda.ComplexFloatStorage = torch.xpu.ComplexFloatStorage
                 torch.cuda.ComplexDoubleStorage = torch.xpu.ComplexDoubleStorage
-
-                torch._C._cuda_getCurrentRawStream = ipex._C._getCurrentRawStream
-                ipex._C._DeviceProperties.multi_processor_count = ipex._C._DeviceProperties.gpu_subslice_count
-                ipex._C._DeviceProperties.major = 12
-                ipex._C._DeviceProperties.minor = 1
-                ipex._C._DeviceProperties.L2_cache_size = 16*1024*1024 # A770 and A750
+                if has_ipex:
+                    torch._C._cuda_getCurrentRawStream = ipex._C._getCurrentRawStream
             else:
                 torch.cuda._initialization_lock = torch.xpu._initialization_lock
                 torch.cuda._initialized = torch.xpu._initialized
@@ -123,12 +119,7 @@ def ipex_init(): # pylint: disable=too-many-statements
                 torch.cuda._tls = torch.xpu._tls
                 torch.cuda.threading = torch.xpu.threading
                 torch.cuda.traceback = torch.xpu.traceback
-
                 torch._C._cuda_getCurrentRawStream = torch._C._xpu_getCurrentRawStream
-                torch._C._XpuDeviceProperties.multi_processor_count = torch._C._XpuDeviceProperties.gpu_subslice_count
-                torch._C._XpuDeviceProperties.major = 12
-                torch._C._XpuDeviceProperties.minor = 1
-                torch._C._XpuDeviceProperties.L2_cache_size = 16*1024*1024 # A770 and A750
 
             if torch_version[0] < 2 or (torch_version[0] == 2 and torch_version[1] < 5):
                 torch.cuda.os = torch.xpu.os
@@ -152,7 +143,7 @@ def ipex_init(): # pylint: disable=too-many-statements
                 # torch._int_mm directly uses onednn quantized matmul
                 # onednn qlinear is a wrapper around onednn quantized matmul
                 if hasattr(torch.ops, "onednn") and hasattr(torch.ops.onednn, "qlinear_pointwise"):
-                    def onednn_mm(x: torch.Tensor, y: torch.Tensor):
+                    def onednn_mm(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
                         # supports int8, fp32, fp16, and bf16 matmul with accumulation using a different dtype
                         # int8 matmul with onednn is slower than 16 bit with dim_size < 4096
                         return torch.ops.onednn.qlinear_pointwise.default(x, 1.0, 0, y, torch.ones(1, device=y.device), torch.zeros(1, device=y.device), None, 1.0, 0, torch.float32, "none", [], "none")
@@ -207,9 +198,6 @@ def ipex_init(): # pylint: disable=too-many-statements
             torch.version.cuda = "12.1"
             torch.cuda.get_arch_list = getattr(torch.xpu, "get_arch_list", lambda: ["pvc", "dg2", "ats-m150"])
             torch.cuda.get_device_capability = lambda *args, **kwargs: (12,1)
-            torch.cuda.get_device_properties.major = 12
-            torch.cuda.get_device_properties.minor = 1
-            torch.cuda.get_device_properties.L2_cache_size = 16*1024*1024 # A770 and A750
             torch.cuda.ipc_collect = lambda *args, **kwargs: None
             torch.cuda.utilization = lambda *args, **kwargs: 0
 
