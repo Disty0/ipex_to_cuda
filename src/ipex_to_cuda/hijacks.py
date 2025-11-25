@@ -6,7 +6,6 @@ import numpy as np
 
 from .device_prop import cache_size_dict
 
-
 torch_version = torch.__version__[:4]
 if torch_version[-1] not in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}:
     torch_version = torch_version[:-1]
@@ -387,7 +386,15 @@ def ipex_hijacks():
     except Exception:
         pass
 
-    if os.environ.get("IPEX_FORCE_ATTENTION_SLICE", "0") != "-1":
+    if os.environ.get("IPEX_FORCE_ATTENTION_SLICE", "0") == "0":
+        if torch_version[0] > 2 or (torch_version[0] == 2 and torch_version[1] >= 7):
+            use_dynamic_attention = False # torch 2.7 has flash atten support
+        else:
+            use_dynamic_attention = True
+    else:
+        use_dynamic_attention = bool(os.environ.get("IPEX_FORCE_ATTENTION_SLICE", "0") == "1")
+
+    if use_dynamic_attention:
         from .attention import dynamic_scaled_dot_product_attention
         torch.nn.functional.scaled_dot_product_attention = dynamic_scaled_dot_product_attention
 
