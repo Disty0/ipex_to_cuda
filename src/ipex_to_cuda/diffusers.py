@@ -50,7 +50,7 @@ def hidream_rope(pos: torch.Tensor, dim: int, theta: int) -> torch.Tensor:
     scale = torch.arange(0, dim, 2, dtype=torch.float64, device=pos.device) / dim
     omega = 1.0 / (theta**scale)
 
-    batch_size, seq_length = pos.shape
+    batch_size, _seq_length = pos.shape
     out = torch.einsum("...n,d->...nd", pos, omega)
     cos_out = torch.cos(out)
     sin_out = torch.sin(out)
