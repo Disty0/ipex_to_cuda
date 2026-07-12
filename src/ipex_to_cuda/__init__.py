@@ -55,7 +55,6 @@ def ipex_init(): # pylint: disable=too-many-statements
                 pass
             # Replace cuda with xpu:
             torch.cuda.current_device = torch.xpu.current_device
-            #torch.cuda.current_stream = torch.xpu.current_stream
             torch.cuda.device = torch.xpu.device
             torch.cuda.device_count = torch.xpu.device_count
             torch.cuda.device_of = torch.xpu.device_of
@@ -166,14 +165,6 @@ def ipex_init(): # pylint: disable=too-many-statements
 
             if torch_version[0] < 2 or (torch_version[0] == 2 and torch_version[1] < 12):
                 torch.cuda.Optional = torch.xpu.Optional
-
-            if torch_version[0] < 2 or (torch_version[0] == 2 and torch_version[1] < 13):
-                torch.cuda.current_stream = torch.xpu.current_stream
-            else:
-                def cuda_current_stream_wrapper(device=None):
-                    return torch.xpu.current_stream(device)
-
-                torch.cuda.current_stream = cuda_current_stream_wrapper
 
             # Memory:
             if "linux" in sys.platform and "WSL2" in os.popen("uname -a").read():
