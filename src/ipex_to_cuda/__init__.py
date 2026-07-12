@@ -173,6 +173,8 @@ def ipex_init(): # pylint: disable=too-many-statements
                 def cuda_current_stream_wrapper(device=None):
                     return torch.xpu.current_stream(device)
 
+                torch.cuda.current_stream = cuda_current_stream_wrapper
+
             # Memory:
             if "linux" in sys.platform and "WSL2" in os.popen("uname -a").read():
                 torch.xpu.empty_cache = return_none
