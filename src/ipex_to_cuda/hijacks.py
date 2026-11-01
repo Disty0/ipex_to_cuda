@@ -39,6 +39,50 @@ def return_xpu(device): # keep the device instance type, aka return string if th
     return f"xpu:{torch.xpu.current_device()}" if device is None else f"xpu:{device.split(':')[-1]}" if isinstance(device, str) and ":" in device else f"xpu:{device}" if isinstance(device, int) else torch.device(f"xpu:{device.index}" if device.index is not None else "xpu") if isinstance(device, torch.device) else "xpu"
 
 
+def wrap_device_keyword(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        device = kwargs.get("device")
+
+        if check_cuda(device):
+            kwargs["device"] = return_xpu(device)
+
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+# Wrap additional tensor factory functions that accept a device argument.
+def wrap_tensor_factory_functions():
+    original_torch_rand = torch.rand
+    original_torch_randint = torch.randint
+    original_torch_randperm = torch.randperm
+    original_torch_logspace = torch.logspace
+    original_torch_scalar_tensor = torch.scalar_tensor
+    original_torch_empty_strided = torch.empty_strided
+
+    torch.rand = wrap_device_keyword(original_torch_rand)
+    torch.randint = wrap_device_keyword(original_torch_randint)
+    torch.randperm = wrap_device_keyword(original_torch_randperm)
+    torch.logspace = wrap_device_keyword(original_torch_logspace)
+    torch.scalar_tensor = wrap_device_keyword(original_torch_scalar_tensor)
+    torch.empty_strided = wrap_device_keyword(original_torch_empty_strided)
+
+    if hasattr(torch, "empty_permuted"):
+        original_torch_empty_permuted = torch.empty_permuted
+        torch.empty_permuted = wrap_device_keyword(original_torch_empty_permuted)
+
+
+def prepare_device_context():
+    try:
+        from torch.utils._device import _device_constructors
+
+        _device_constructors.cache_clear()
+        _device_constructors()
+
+    except (ImportError, AttributeError):
+        pass
+
 # Autocast
 original_autocast_init = torch.amp.autocast_mode.autocast.__init__
 @wraps(torch.amp.autocast_mode.autocast.__init__)
@@ -133,10 +177,19 @@ original_as_tensor = torch.as_tensor
 def as_tensor(data, dtype=None, device=None):
     if check_cuda(device):
         device = return_xpu(device)
-    if isinstance(data, np.ndarray) and data.dtype == float and not check_device_type(device, "cpu"):
-        return original_as_tensor(data, dtype=torch.float32, device=device)
-    else:
-        return original_as_tensor(data, dtype=dtype, device=device)
+
+    target_device = (torch.device(device)
+        if device is not None else data.device
+        if isinstance(data, torch.Tensor) else torch.get_default_device()
+    )
+
+    if not device_supports_fp64 and target_device.type == "xpu":
+        data_dtype = getattr(data, "dtype", None)
+
+        if dtype == torch.float64 or (dtype is None and data_dtype in (torch.float64, np.dtype("float64"), float)):
+            dtype = torch.float32
+
+    return original_as_tensor(data, dtype=dtype, device=device)
 
 
 torch.Tensor.original_Tensor_to = torch.Tensor.to
@@ -364,6 +417,14 @@ def get_device_index(device: torch.device, *args, **kwargs):
         return original_torch_xpu_get_device_index(device, *args, **kwargs)
 
 
+original_torch_set_default_device = torch.set_default_device
+@wraps(torch.set_default_device)
+def torch_set_default_device(device):
+    if check_cuda(device):
+        device = return_xpu(device)
+    return original_torch_set_default_device(device)
+
+
 class DeviceProperties():
     def __init__(self, device_prop, new_keys):
         for key in dir(device_prop):
@@ -384,8 +445,29 @@ class torch_Generator(original_torch_Generator):
             return super().__new__(cls, device)
 
 
+# Wrap the generic Stream constructor to translate CUDA devices to XPU.
+original_torch_Stream = torch.Stream
+class torch_Stream(original_torch_Stream):
+    def __new__(cls, device=None, *args, **kwargs):
+        if check_cuda(device):
+            device = return_xpu(device)
+        return super().__new__(cls, device, *args, **kwargs)
+
+
+original_torch_xpu_Stream = torch.xpu.Stream
+class torch_xpu_Stream(original_torch_xpu_Stream):
+    def __new__(cls, device=None, priority=0, **kwargs):
+        if check_cuda(device):
+            device = return_xpu(device)
+        return super().__new__(cls, device=device, priority=priority, **kwargs)
+
+
+
 # Hijack Functions:
 def ipex_hijacks():
+    # Cache original tensor factory functions before applying hijacks.
+    prepare_device_context()
+
     torch.UntypedStorage.__init__ = UntypedStorage_init
     if torch_version[0] > 2 or (torch_version[0] == 2 and torch_version[1] >= 4):
         torch.UntypedStorage.cuda = UntypedStorage_cuda
@@ -419,9 +501,13 @@ def ipex_hijacks():
     torch.cuda._get_device_properties = get_device_properties
     torch.cuda._get_device_index = get_device_index
     torch.xpu._get_device_index = get_device_index
+    torch.set_default_device = torch_set_default_device
+    torch.as_tensor = as_tensor
 
     torch.Generator = torch_Generator
     torch._C.Generator = torch_Generator
+    torch.Stream = torch_Stream
+    torch.cuda.Stream = torch_xpu_Stream
 
     torch.UntypedStorage.is_cuda = is_cuda
     torch.amp.autocast_mode.autocast.__init__ = autocast_init
@@ -431,9 +517,10 @@ def ipex_hijacks():
     torch.fft.fftn = fft_fftn
     torch.fft.ifftn = fft_ifftn
 
+    wrap_tensor_factory_functions()
+
     if not device_supports_fp64:
         torch.from_numpy = from_numpy
-        torch.as_tensor = as_tensor
 
     try:
         import torchvision
